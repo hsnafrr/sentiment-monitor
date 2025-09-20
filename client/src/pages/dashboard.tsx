@@ -88,8 +88,8 @@ export default function Dashboard() {
               </div>
             </div>
             
-            {trends?.trends && trends.trends.length > 0 ? (
-              <SentimentChart data={trends.trends} />
+            {trends && Array.isArray(trends) && trends.length > 0 ? (
+              <SentimentChart data={trends} />
             ) : (
               <div className="h-64 bg-background rounded border border-border flex items-center justify-center">
                 <p className="text-muted-foreground">No trend data available</p>
@@ -120,8 +120,8 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-3" data-testid="alerts-container">
-              {alerts?.alerts && alerts.alerts.length > 0 ? (
-                alerts.alerts.slice(0, 3).map((alert) => (
+              {alerts && Array.isArray(alerts) && alerts.length > 0 ? (
+                alerts.slice(0, 3).map((alert: any) => (
                   <AlertCard
                     key={alert.id}
                     alert={alert}
@@ -146,7 +146,7 @@ export default function Dashboard() {
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="font-orbitron font-bold text-lg mb-6">GEOGRAPHICAL INTELLIGENCE</h3>
             
-            {summary?.regional && summary.regional.length > 0 ? (
+            {summary?.regional && Array.isArray(summary.regional) && summary.regional.length > 0 ? (
               <RadarChart regionalData={summary.regional} />
             ) : (
               <div className="h-64 bg-background rounded border border-border flex items-center justify-center">
@@ -160,14 +160,14 @@ export default function Dashboard() {
             <h3 className="font-orbitron font-bold text-lg mb-6">INTELLIGENCE DOSSIER</h3>
             
             <div className="space-y-4" data-testid="dossier-container">
-              {summary?.keywords && summary.keywords.length > 0 ? (
-                summary.keywords.slice(0, 4).map((keyword, index) => (
+              {summary?.keywords && Array.isArray(summary.keywords) && summary.keywords.length > 0 ? (
+                summary.keywords.slice(0, 4).map((keyword: any, index: number) => (
                   <DossierCard
                     key={`${keyword.keyword}-${index}`}
                     keyword={keyword.keyword || `KEYWORD_${index + 1}`}
                     mentions={keyword.count || 0}
                     sentiment={keyword.sentiment as "positive" | "negative" | "neutral" || "neutral"}
-                    percentage={Math.min(((keyword.count || 0) / (summary.sentiment.total || 1)) * 100, 100)}
+                    percentage={Math.min(((keyword.count || 0) / (summary?.sentiment?.total || 1)) * 100, 100)}
                     threatLevel={keyword.sentiment === "negative" ? "HIGH" : keyword.sentiment === "neutral" ? "MEDIUM" : "LOW"}
                   />
                 ))
@@ -181,22 +181,22 @@ export default function Dashboard() {
         </div>
 
         {/* Sentiment Summary Stats */}
-        {summary?.sentiment && (
+        {summary?.sentiment && summary.sentiment.total !== undefined && (
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-card border border-border rounded-lg p-4 text-center" data-testid="stat-total">
-              <div className="text-2xl font-orbitron font-bold text-foreground">{summary.sentiment.total.toLocaleString()}</div>
+              <div className="text-2xl font-orbitron font-bold text-foreground">{summary.sentiment.total?.toLocaleString() || 0}</div>
               <div className="text-sm text-muted-foreground">Total Mentions</div>
             </div>
             <div className="bg-card border border-border rounded-lg p-4 text-center" data-testid="stat-positive">
-              <div className="text-2xl font-orbitron font-bold text-green-500">{summary.sentiment.positive.toLocaleString()}</div>
+              <div className="text-2xl font-orbitron font-bold text-green-500">{summary.sentiment.positive?.toLocaleString() || 0}</div>
               <div className="text-sm text-muted-foreground">Positive</div>
             </div>
             <div className="bg-card border border-border rounded-lg p-4 text-center" data-testid="stat-negative">
-              <div className="text-2xl font-orbitron font-bold text-primary">{summary.sentiment.negative.toLocaleString()}</div>
+              <div className="text-2xl font-orbitron font-bold text-primary">{summary.sentiment.negative?.toLocaleString() || 0}</div>
               <div className="text-sm text-muted-foreground">Negative</div>
             </div>
             <div className="bg-card border border-border rounded-lg p-4 text-center" data-testid="stat-neutral">
-              <div className="text-2xl font-orbitron font-bold text-yellow-500">{summary.sentiment.neutral.toLocaleString()}</div>
+              <div className="text-2xl font-orbitron font-bold text-yellow-500">{summary.sentiment.neutral?.toLocaleString() || 0}</div>
               <div className="text-sm text-muted-foreground">Neutral</div>
             </div>
           </div>

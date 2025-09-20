@@ -21,7 +21,7 @@ export default function Landing() {
 
             {/* Main Hero Content */}
             <h1 className="font-orbitron font-black text-4xl sm:text-6xl lg:text-7xl mb-6 scanner-line">
-              <span className="text-primary">MISSION</span><br>
+              <span className="text-primary">MISSION</span><br />
               <span className="text-foreground">IMPOSSIBLE</span>
             </h1>
             

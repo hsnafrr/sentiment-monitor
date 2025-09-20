@@ -1,13 +1,9 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { 
-  users, mentions, alerts, trendData,
   type User, type InsertUser,
   type Mention, type InsertMention,
   type Alert, type InsertAlert,
   type TrendData, type InsertTrendData
 } from "@shared/schema";
-import { desc, eq, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -43,98 +39,217 @@ export interface IStorage {
   getRegionalSentiment(): Promise<{ region: string; sentiment: number; count: number }[]>;
 }
 
-class DatabaseStorage implements IStorage {
-  private db: ReturnType<typeof drizzle>;
+class MemoryStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private mentions: Map<string, Mention> = new Map();
+  private alerts: Map<string, Alert> = new Map();
+  private trendData: Map<string, TrendData> = new Map();
 
   constructor() {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is required");
-    }
-    
-    const client = postgres(process.env.DATABASE_URL);
-    this.db = drizzle(client);
+    // Initialize with some sample data
+    this.initializeSampleData();
+  }
+
+  private generateId(): string {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }
+
+  private initializeSampleData(): void {
+    // Sample users
+    const sampleUser: User = {
+      id: this.generateId(),
+      email: "analyst@example.com",
+      name: "Social Media Analyst",
+      role: "analyst",
+      createdAt: new Date()
+    };
+    this.users.set(sampleUser.id, sampleUser);
+
+    // Sample mentions
+    const now = new Date();
+    const sampleMentions: Mention[] = [
+      {
+        id: this.generateId(),
+        platform: "twitter",
+        postId: "tweet-1",
+        author: "@user1",
+        content: "Great product! Really enjoying the new features.",
+        createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+        language: "en",
+        sentimentLabel: "positive",
+        sentimentScore: 0.8,
+        topic: "product feedback",
+        region: "North America",
+        metadata: { engagement: 120 }
+      },
+      {
+        id: this.generateId(),
+        platform: "instagram",
+        postId: "post-2",
+        author: "@user2",
+        content: "Could be better, having some issues with the app.",
+        createdAt: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+        language: "en",
+        sentimentLabel: "negative",
+        sentimentScore: -0.6,
+        topic: "app issues",
+        region: "Europe",
+        metadata: { engagement: 45 }
+      },
+      {
+        id: this.generateId(),
+        platform: "facebook",
+        postId: "post-3",
+        author: "user3",
+        content: "Just tried the new update. It's okay, nothing special.",
+        createdAt: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+        language: "en",
+        sentimentLabel: "neutral",
+        sentimentScore: 0.1,
+        topic: "update",
+        region: "Asia",
+        metadata: { engagement: 78 }
+      }
+    ];
+
+    sampleMentions.forEach(mention => this.mentions.set(mention.id, mention));
+
+    // Sample alerts
+    const sampleAlert: Alert = {
+      id: this.generateId(),
+      name: "Negative Sentiment Spike",
+      query: "sentiment:negative",
+      threshold: 0.7,
+      isActive: "true",
+      lastTriggered: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    };
+    this.alerts.set(sampleAlert.id, sampleAlert);
+
+    // Sample trend data
+    const sampleTrend: TrendData = {
+      id: this.generateId(),
+      timestamp: new Date(),
+      positiveCount: 12,
+      negativeCount: 3,
+      neutralCount: 8,
+      averageScore: 0.3,
+      platform: "twitter",
+      region: "North America"
+    };
+    this.trendData.set(sampleTrend.id, sampleTrend);
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
-    return result[0];
+    return this.users.get(id);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
-    return result[0];
+    return Array.from(this.users.values()).find(user => user.email === email);
   }
 
-  async createUser(user: InsertUser): Promise<User> {
-    const result = await this.db.insert(users).values(user).returning();
-    return result[0];
+  async createUser(userData: InsertUser): Promise<User> {
+    const user: User = {
+      id: this.generateId(),
+      role: "analyst",
+      ...userData,
+      createdAt: new Date()
+    };
+    this.users.set(user.id, user);
+    return user;
   }
 
   async getMentions(limit = 100): Promise<Mention[]> {
-    return await this.db.select().from(mentions)
-      .orderBy(desc(mentions.createdAt))
-      .limit(limit);
+    return Array.from(this.mentions.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
-  async createMention(mention: InsertMention): Promise<Mention> {
-    const result = await this.db.insert(mentions).values(mention).returning();
-    return result[0];
+  async createMention(mentionData: InsertMention): Promise<Mention> {
+    const mention: Mention = {
+      id: this.generateId(),
+      language: "en",
+      topic: null,
+      region: null,
+      metadata: null,
+      ...mentionData,
+      createdAt: new Date()
+    };
+    this.mentions.set(mention.id, mention);
+    return mention;
   }
 
   async getMentionsByPlatform(platform: string): Promise<Mention[]> {
-    return await this.db.select().from(mentions)
-      .where(eq(mentions.platform, platform))
-      .orderBy(desc(mentions.createdAt));
+    return Array.from(this.mentions.values())
+      .filter(mention => mention.platform === platform)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getMentionsByRegion(region: string): Promise<Mention[]> {
-    return await this.db.select().from(mentions)
-      .where(eq(mentions.region, region))
-      .orderBy(desc(mentions.createdAt));
+    return Array.from(this.mentions.values())
+      .filter(mention => mention.region === region)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getAlerts(): Promise<Alert[]> {
-    return await this.db.select().from(alerts)
-      .orderBy(desc(alerts.createdAt));
+    return Array.from(this.alerts.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async createAlert(alert: InsertAlert): Promise<Alert> {
-    const result = await this.db.insert(alerts).values(alert).returning();
-    return result[0];
+  async createAlert(alertData: InsertAlert): Promise<Alert> {
+    const alert: Alert = {
+      id: this.generateId(),
+      isActive: "true",
+      ...alertData,
+      lastTriggered: null,
+      createdAt: new Date()
+    };
+    this.alerts.set(alert.id, alert);
+    return alert;
   }
 
   async updateAlert(id: string, alertUpdate: Partial<Alert>): Promise<Alert | undefined> {
-    const result = await this.db.update(alerts)
-      .set(alertUpdate)
-      .where(eq(alerts.id, id))
-      .returning();
-    return result[0];
+    const existing = this.alerts.get(id);
+    if (!existing) return undefined;
+    
+    const updated = { ...existing, ...alertUpdate };
+    this.alerts.set(id, updated);
+    return updated;
   }
 
   async getActiveAlerts(): Promise<Alert[]> {
-    return await this.db.select().from(alerts)
-      .where(eq(alerts.isActive, "true"))
-      .orderBy(desc(alerts.createdAt));
+    return Array.from(this.alerts.values())
+      .filter(alert => alert.isActive === "true")
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getTrendData(hours = 24): Promise<TrendData[]> {
     const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
-    return await this.db.select().from(trendData)
-      .where(gte(trendData.timestamp, hoursAgo))
-      .orderBy(desc(trendData.timestamp));
+    return Array.from(this.trendData.values())
+      .filter(trend => trend.timestamp >= hoursAgo)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
-  async createTrendData(trend: InsertTrendData): Promise<TrendData> {
-    const result = await this.db.insert(trendData).values(trend).returning();
-    return result[0];
+  async createTrendData(trendDataInput: InsertTrendData): Promise<TrendData> {
+    const trend: TrendData = {
+      id: this.generateId(),
+      timestamp: new Date(),
+      positiveCount: 0,
+      negativeCount: 0,
+      neutralCount: 0,
+      averageScore: 0,
+      region: null,
+      ...trendDataInput
+    };
+    this.trendData.set(trend.id, trend);
+    return trend;
   }
 
   async getTrendsByPlatform(platform: string, hours = 24): Promise<TrendData[]> {
     const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
-    return await this.db.select().from(trendData)
-      .where(eq(trendData.platform, platform))
-      .where(gte(trendData.timestamp, hoursAgo))
-      .orderBy(desc(trendData.timestamp));
+    return Array.from(this.trendData.values())
+      .filter(trend => trend.platform === platform && trend.timestamp >= hoursAgo)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   async getSentimentSummary(): Promise<{
@@ -143,48 +258,62 @@ class DatabaseStorage implements IStorage {
     neutral: number;
     total: number;
   }> {
-    const result = await this.db
-      .select({
-        positive: sql<number>`count(*) filter (where sentiment_label = 'positive')`,
-        negative: sql<number>`count(*) filter (where sentiment_label = 'negative')`,
-        neutral: sql<number>`count(*) filter (where sentiment_label = 'neutral')`,
-        total: sql<number>`count(*)`
-      })
-      .from(mentions);
+    const mentions = Array.from(this.mentions.values());
+    const positive = mentions.filter(m => m.sentimentLabel === 'positive').length;
+    const negative = mentions.filter(m => m.sentimentLabel === 'negative').length;
+    const neutral = mentions.filter(m => m.sentimentLabel === 'neutral').length;
     
-    return result[0] || { positive: 0, negative: 0, neutral: 0, total: 0 };
+    return {
+      positive,
+      negative,
+      neutral,
+      total: mentions.length
+    };
   }
 
   async getTopKeywords(limit = 10): Promise<{ keyword: string; count: number; sentiment: string }[]> {
-    // This is a simplified implementation - in practice, you'd want proper keyword extraction
-    const result = await this.db
-      .select({
-        keyword: mentions.topic,
-        count: sql<number>`count(*)`,
-        sentiment: mentions.sentimentLabel
-      })
-      .from(mentions)
-      .where(sql`topic is not null`)
-      .groupBy(mentions.topic, mentions.sentimentLabel)
-      .orderBy(sql`count(*) desc`)
-      .limit(limit);
+    const mentions = Array.from(this.mentions.values()).filter(m => m.topic);
+    const keywordCounts = new Map<string, { count: number; sentiment: string }>();
     
-    return result;
+    mentions.forEach(mention => {
+      if (mention.topic) {
+        const existing = keywordCounts.get(mention.topic);
+        if (existing) {
+          existing.count++;
+        } else {
+          keywordCounts.set(mention.topic, { count: 1, sentiment: mention.sentimentLabel });
+        }
+      }
+    });
+    
+    return Array.from(keywordCounts.entries())
+      .map(([keyword, data]) => ({ keyword, ...data }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
   }
 
   async getRegionalSentiment(): Promise<{ region: string; sentiment: number; count: number }[]> {
-    const result = await this.db
-      .select({
-        region: mentions.region,
-        sentiment: sql<number>`avg(sentiment_score)`,
-        count: sql<number>`count(*)`
-      })
-      .from(mentions)
-      .where(sql`region is not null`)
-      .groupBy(mentions.region);
+    const mentions = Array.from(this.mentions.values()).filter(m => m.region);
+    const regionData = new Map<string, { scores: number[]; count: number }>();
     
-    return result;
+    mentions.forEach(mention => {
+      if (mention.region) {
+        const existing = regionData.get(mention.region);
+        if (existing) {
+          existing.scores.push(mention.sentimentScore);
+          existing.count++;
+        } else {
+          regionData.set(mention.region, { scores: [mention.sentimentScore], count: 1 });
+        }
+      }
+    });
+    
+    return Array.from(regionData.entries()).map(([region, data]) => ({
+      region,
+      sentiment: data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length,
+      count: data.count
+    }));
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MemoryStorage();
