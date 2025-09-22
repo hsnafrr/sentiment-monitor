@@ -1,6 +1,22 @@
-node_modules
-dist
+# Node
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+/build
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Replit / local
+.replit
+replit.nix
+.config/
+.cache/
+
+# Misc
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+*.log
